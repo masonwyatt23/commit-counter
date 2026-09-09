@@ -14,7 +14,7 @@ repositories the counter is authorized to search.
 ## How It Works
 
 1. **GitHub Actions Workflow** runs daily at 2 AM UTC
-2. **Python Script** searches commits attributed to the configured GitHub user
+2. **Python Script** searches default-branch commits attributed to the configured GitHub user
 3. **Private Coverage** comes from a read-only token with access to those repos
 4. **Results Storage** saves stats to `commit_stats.json`
 5. **Website Display** shows stats in a beautiful web interface
@@ -23,10 +23,13 @@ repositories the counter is authorized to search.
 
 ### 1. GitHub Token Access
 
-Add a repository secret named `COMMIT_COUNTER_TOKEN`. Use a dedicated
-fine-grained personal access token with read-only repository contents access to
-the repositories that should be counted. The workflow publishes only the
-aggregate count; it never publishes repository names or private metadata.
+Add a repository secret named `COMMIT_COUNTER_TOKEN`. Use a dedicated,
+short-lived token that can access every repository that should be counted. A
+fine-grained personal access token is preferred when all repositories share one
+resource owner. If coverage must span multiple organizations or owners, use a
+dedicated classic token with `repo` access or a GitHub App installed on each
+owner. The workflow publishes only the aggregate count; it never publishes
+repository names or private metadata.
 
 ### 2. Run Manually (Optional)
 
@@ -54,7 +57,6 @@ fetch('https://raw.githubusercontent.com/masonwyatt23/commit-counter/main/commit
   .then(r => r.json())
   .then(data => {
     console.log('Total commits:', data.total_commits);
-    console.log('Total repos:', data.total_repositories);
   });
 ```
 
@@ -118,15 +120,15 @@ The site will be available at: `https://masonwyatt23.github.io/commit-counter/`
 - GitHub API rate limits: 5,000 requests/hour per token
 
 ### Incorrect commit counts?
-- GitHub API counts commits correctly for most repos
-- Very large repositories (100k+ commits) may have slight variations
+- GitHub commit search evaluates repositories' default branches
+- Commits must be attributed by GitHub to the configured username
+- The token must be able to access every private repository that should count
 - Re-run the workflow if needed
 
 ## API Rate Limiting
 
-The script respects GitHub's API rate limits:
-- Authenticated requests: 5,000/hour
-- Typical run: ~50-100 API calls
+The script uses GitHub's authenticated commit-search endpoint and fails closed
+when GitHub reports incomplete results. A normal run makes one search request.
 
 ## Support
 
