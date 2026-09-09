@@ -15,37 +15,44 @@ SPEC.loader.exec_module(counter)
 
 
 class FakeResponse:
-    def __init__(self, payload, link=""):
+    def __init__(self, payload):
         self._payload = json.dumps(payload).encode()
-        self.headers = {"Link": link}
 
     def read(self):
         return self._payload
 
 
 class CommitCounterTests(unittest.TestCase):
-    def test_last_page_is_commit_count(self):
-        response = FakeResponse(
-            [{"sha": "abc"}],
-            '<https://api.github.com/repositories/1/commits?per_page=1&page=42>; rel="last"',
-        )
-        with patch.object(counter, "urlopen", return_value=response):
-            self.assertEqual(counter.count_commits_for_repo({"full_name": "org/repo"}), 42)
+    def test_requires_authenticated_token(self):
+        with patch.object(counter, "GITHUB_TOKEN", None):
+            with self.assertRaisesRegex(RuntimeError, "GITHUB_TOKEN is required"):
+                counter.get_headers()
 
-    def test_single_commit_without_link_header(self):
-        with patch.object(counter, "urlopen", return_value=FakeResponse([{"sha": "abc"}])):
-            self.assertEqual(counter.count_commits_for_repo({"full_name": "org/repo"}), 1)
+    def test_returns_complete_author_total(self):
+        response = FakeResponse({"total_count": 13574, "incomplete_results": False})
+        with (
+            patch.object(counter, "GITHUB_TOKEN", "test-token"),
+            patch.object(counter, "urlopen", return_value=response),
+        ):
+            self.assertEqual(counter.get_total_commits(), 13574)
 
-    def test_empty_repository_is_zero(self):
-        error = HTTPError("https://api.github.com", 409, "empty", {}, BytesIO())
-        with patch.object(counter, "urlopen", side_effect=error):
-            self.assertEqual(counter.count_commits_for_repo({"full_name": "org/empty"}), 0)
+    def test_incomplete_search_fails_closed(self):
+        response = FakeResponse({"total_count": 13574, "incomplete_results": True})
+        with (
+            patch.object(counter, "GITHUB_TOKEN", "test-token"),
+            patch.object(counter, "urlopen", return_value=response),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "incomplete or invalid"):
+                counter.get_total_commits()
 
-    def test_other_api_errors_fail_closed(self):
+    def test_api_errors_fail_closed(self):
         error = HTTPError("https://api.github.com", 403, "forbidden", {}, BytesIO())
-        with patch.object(counter, "urlopen", side_effect=error):
-            with self.assertRaisesRegex(RuntimeError, "Could not count commits"):
-                counter.count_commits_for_repo({"full_name": "org/repo"})
+        with (
+            patch.object(counter, "GITHUB_TOKEN", "test-token"),
+            patch.object(counter, "urlopen", side_effect=error),
+        ):
+            with self.assertRaisesRegex(RuntimeError, "commit search failed"):
+                counter.get_total_commits()
 
 
 if __name__ == "__main__":

@@ -1,21 +1,21 @@
 # 📊 GitHub Commit Counter
 
-Automatically calculate and track default-branch commits across public personal
-and organization repositories.
+Automatically track every commit GitHub attributes to `masonwyatt23` across
+repositories the counter is authorized to search.
 
 ## Features
 
 ✨ **Automated Tracking** - Runs daily via GitHub Actions
-📈 **Clear Scope** - Counts default-branch commits across public, non-fork repos
+📈 **Author Scoped** - Counts commits attributed to one GitHub identity
 🌐 **Website Ready** - Display stats on your company website
 📱 **Responsive Design** - Beautiful web interface included
-🔒 **Aggregate Only** - Public JSON contains totals, never repository inventory
+🔒 **Aggregate Only** - Public JSON never contains repository inventory
 
 ## How It Works
 
 1. **GitHub Actions Workflow** runs daily at 2 AM UTC
-2. **Python Script** fetches public personal and organization repositories
-3. **Commit Counting** counts each non-fork repository's default branch
+2. **Python Script** searches commits attributed to the configured GitHub user
+3. **Private Coverage** comes from a read-only token with access to those repos
 4. **Results Storage** saves stats to `commit_stats.json`
 5. **Website Display** shows stats in a beautiful web interface
 
@@ -23,9 +23,10 @@ and organization repositories.
 
 ### 1. GitHub Token Access
 
-The workflow uses the automatic `GITHUB_TOKEN` for public API rate limits and
-to write the aggregate JSON to this repository. It does not enumerate or
-publish private repositories.
+Add a repository secret named `COMMIT_COUNTER_TOKEN`. Use a dedicated
+fine-grained personal access token with read-only repository contents access to
+the repositories that should be counted. The workflow publishes only the
+aggregate count; it never publishes repository names or private metadata.
 
 ### 2. Run Manually (Optional)
 
@@ -64,9 +65,8 @@ The script generates a `commit_stats.json` file with the following structure:
 ```json
 {
   "timestamp": "2024-01-15T02:00:00+00:00",
-  "scope": "public repositories and default branches",
-  "total_commits": 15234,
-  "total_repositories": 45
+  "scope": "commits authored by masonwyatt23 across accessible repositories",
+  "total_commits": 15234
 }
 ```
 
@@ -110,11 +110,11 @@ The site will be available at: `https://masonwyatt23.github.io/commit-counter/`
 ### Workflow not running?
 - Check **Actions** tab for any errors
 - Manually trigger workflow to test
-- Verify `GITHUB_TOKEN` has necessary permissions
+- Verify `COMMIT_COUNTER_TOKEN` exists and can read the intended repositories
 
 ### Stats not updating?
 - Check the workflow logs in **Actions** tab
-- Verify you have commits in your repositories
+- Verify commits are attributed to the configured GitHub username
 - GitHub API rate limits: 5,000 requests/hour per token
 
 ### Incorrect commit counts?
