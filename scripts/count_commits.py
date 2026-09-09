@@ -1,21 +1,25 @@
 #!/usr/bin/env python3
 import os
 import json
-import subprocess
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.request import urlopen, Request
-from urllib.error import URLError
+from urllib.error import HTTPError, URLError
 import re
 
 GITHUB_TOKEN = os.getenv('GITHUB_TOKEN')
 GITHUB_API_URL = 'https://api.github.com'
+GITHUB_USERNAME = os.getenv('GITHUB_USERNAME', 'masonwyatt23')
 
 def get_headers():
     """Get authorization headers for GitHub API"""
-    return {
-        'Authorization': f'token {GITHUB_TOKEN}',
-        'Accept': 'application/vnd.github.v3+json'
+    headers = {
+        'Accept': 'application/vnd.github+json',
+        'User-Agent': 'masonwyatt23-commit-counter',
+        'X-GitHub-Api-Version': '2022-11-28',
     }
+    if GITHUB_TOKEN:
+        headers['Authorization'] = f'Bearer {GITHUB_TOKEN}'
+    return headers
 
 def fetch_paginated(url, headers):
     """Fetch all paginated results from GitHub API"""
@@ -38,62 +42,42 @@ def fetch_paginated(url, headers):
                 results.append(data)
             
             page += 1
-        except URLError as e:
-            print(f"Error fetching {url}: {e}")
-            break
+        except (HTTPError, URLError, TimeoutError) as e:
+            raise RuntimeError(f"GitHub request failed for {url}: {e}") from e
     
     return results
 
 def get_repos():
-    """Fetch all personal and org repositories"""
+    """Fetch public repositories owned by the user and their public orgs."""
     repos = []
     headers = get_headers()
     
-    print("Fetching personal repositories...")
-    # Get personal repos
-    url = f'{GITHUB_API_URL}/user/repos?type=owner'
+    print(f"Fetching public repositories owned by {GITHUB_USERNAME}...")
+    url = f'{GITHUB_API_URL}/users/{GITHUB_USERNAME}/repos?type=owner&sort=full_name'
     personal_repos = fetch_paginated(url, headers)
     repos.extend(personal_repos)
     print(f"Found {len(personal_repos)} personal repositories")
     
-    # Get org repos
-    print("Fetching organization memberships...")
-    url = f'{GITHUB_API_URL}/user/orgs'
+    print("Fetching public organization memberships...")
+    url = f'{GITHUB_API_URL}/users/{GITHUB_USERNAME}/orgs'
     orgs = fetch_paginated(url, headers)
     print(f"Found {len(orgs)} organizations")
     
     for org in orgs:
         print(f"Fetching repositories for {org['login']}...")
-        url = f'{GITHUB_API_URL}/orgs/{org["login"]}/repos'
+        url = f'{GITHUB_API_URL}/orgs/{org["login"]}/repos?type=public&sort=full_name'
         org_repos = fetch_paginated(url, headers)
         repos.extend(org_repos)
         print(f"Found {len(org_repos)} repositories in {org['login']}")
     
-    return repos
+    return list({repo['id']: repo for repo in repos}.values())
 
 def count_commits_for_repo(repo):
     """Count commits in a repository using GitHub API"""
     try:
         headers = get_headers()
-        url = f"{GITHUB_API_URL}/repos/{repo['full_name']}/commits"
-        
-        # Make a HEAD request to get the Link header which contains pagination info
-        req = Request(url, headers=headers)
-        req.get_method = lambda: 'HEAD'
-        
-        try:
-            response = urlopen(req, timeout=10)
-            link_header = response.headers.get('Link', '')
-            
-            # Extract total from Link header if available
-            if 'last' in link_header:
-                match = re.search(r'page=(\d+)>; rel="last"', link_header)
-                if match:
-                    return int(match.group(1))
-        except:
-            pass
-        
-        # Fallback: use GET request with per_page=1 to get count from Link header
+        # With one commit per page, the final page number is the default
+        # branch's commit count. GitHub returns no Link header for 0-1 commits.
         url_with_params = f"{GITHUB_API_URL}/repos/{repo['full_name']}/commits?per_page=1"
         req = Request(url_with_params, headers=headers)
         response = urlopen(req, timeout=10)
@@ -104,13 +88,18 @@ def count_commits_for_repo(repo):
             if match:
                 return int(match.group(1))
         
-        # If no Link header, fetch actual commits
         data = json.loads(response.read().decode())
-        return len(data) if isinstance(data, list) else 1
-        
+        return len(data) if isinstance(data, list) else 0
+    except HTTPError as e:
+        if e.code == 409:  # Empty repository.
+            return 0
+        raise RuntimeError(
+            f"Could not count commits for {repo['full_name']}: {e}"
+        ) from e
     except Exception as e:
-        print(f"Error counting commits for {repo['full_name']}: {e}")
-        return 0
+        raise RuntimeError(
+            f"Could not count commits for {repo['full_name']}: {e}"
+        ) from e
 
 def main():
     print("=" * 60)
@@ -120,10 +109,10 @@ def main():
     
     repos = get_repos()
     print(f"\nTotal repositories found: {len(repos)}")
+    if not repos:
+        raise RuntimeError("GitHub returned no public repositories; refusing to publish zero stats")
     
     total_commits = 0
-    repo_stats = []
-    
     # Filter out forks
     filtered_repos = [r for r in repos if not r.get('fork', False)]
     print(f"Counting commits for {len(filtered_repos)} non-forked repositories...\n")
@@ -133,25 +122,18 @@ def main():
         commits = count_commits_for_repo(repo)
         total_commits += commits
         print(f"✓ {commits} commits")
-        
-        repo_stats.append({
-            'name': repo['full_name'],
-            'commits': commits,
-            'url': repo['html_url'],
-            'language': repo.get('language'),
-            'description': repo.get('description')
-        })
-    
+
     # Save results
     output = {
-        'timestamp': datetime.now().isoformat(),
+        'timestamp': datetime.now(timezone.utc).isoformat(),
+        'scope': 'public repositories and default branches',
         'total_commits': total_commits,
         'total_repositories': len(filtered_repos),
-        'repositories': sorted(repo_stats, key=lambda x: x['commits'], reverse=True)
     }
     
     with open('commit_stats.json', 'w') as f:
         json.dump(output, f, indent=2)
+        f.write('\n')
     
     print("\n" + "=" * 60)
     print(f"✓ Total commits: {total_commits:,}")

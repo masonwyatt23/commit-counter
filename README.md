@@ -1,28 +1,31 @@
 # 📊 GitHub Commit Counter
 
-Automatically calculate and track total commits across all your GitHub personal and organization repositories.
+Automatically calculate and track default-branch commits across public personal
+and organization repositories.
 
 ## Features
 
 ✨ **Automated Tracking** - Runs daily via GitHub Actions
-📈 **Comprehensive Stats** - Counts commits across all your repos
+📈 **Clear Scope** - Counts default-branch commits across public, non-fork repos
 🌐 **Website Ready** - Display stats on your company website
 📱 **Responsive Design** - Beautiful web interface included
-🔒 **Public Access** - Stats JSON is publicly available for embedding
+🔒 **Aggregate Only** - Public JSON contains totals, never repository inventory
 
 ## How It Works
 
 1. **GitHub Actions Workflow** runs daily at 2 AM UTC
-2. **Python Script** fetches all your personal and organization repositories
-3. **Commit Counting** uses the GitHub API to count commits per repo
+2. **Python Script** fetches public personal and organization repositories
+3. **Commit Counting** counts each non-fork repository's default branch
 4. **Results Storage** saves stats to `commit_stats.json`
 5. **Website Display** shows stats in a beautiful web interface
 
 ## Setup
 
-### 1. Ensure GitHub Token Access
+### 1. GitHub Token Access
 
-The workflow uses the default `GITHUB_TOKEN` which is automatically created. However, to count commits across organization repositories, make sure your token has appropriate access.
+The workflow uses the automatic `GITHUB_TOKEN` for public API rate limits and
+to write the aggregate JSON to this repository. It does not enumerate or
+publish private repositories.
 
 ### 2. Run Manually (Optional)
 
@@ -60,18 +63,10 @@ The script generates a `commit_stats.json` file with the following structure:
 
 ```json
 {
-  "timestamp": "2024-01-15T02:00:00.000000",
+  "timestamp": "2024-01-15T02:00:00+00:00",
+  "scope": "public repositories and default branches",
   "total_commits": 15234,
-  "total_repositories": 45,
-  "repositories": [
-    {
-      "name": "masonwyatt23/my-repo",
-      "commits": 1234,
-      "url": "https://github.com/masonwyatt23/my-repo",
-      "language": "Python",
-      "description": "My awesome project"
-    }
-  ]
+  "total_repositories": 45
 }
 ```
 
