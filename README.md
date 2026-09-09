@@ -1,12 +1,12 @@
 # 📊 GitHub Commit Counter
 
-Automatically track every commit GitHub attributes to `masonwyatt23` across
-repositories the counter is authorized to search.
+Automatically track the combined default-branch history across non-fork
+repositories owned by `masonwyatt23`, `ashlrai`, and `Cash-Margin-Partners`.
 
 ## Features
 
 ✨ **Automated Tracking** - Runs daily via GitHub Actions
-📈 **Author Scoped** - Counts commits attributed to one GitHub identity
+📈 **Three Owners** - Combines company and founder repository history
 🌐 **Website Ready** - Display stats on your company website
 📱 **Responsive Design** - Beautiful web interface included
 🔒 **Aggregate Only** - Public JSON never contains repository inventory
@@ -14,9 +14,10 @@ repositories the counter is authorized to search.
 ## How It Works
 
 1. **GitHub Actions Workflow** runs daily at 2 AM UTC
-2. **Python Script** searches default-branch commits attributed to the configured GitHub user
+2. **Python Script** queries every owner's repository graph and default-branch history
 3. **Private Coverage** comes from a read-only token with access to those repos
-4. **Results Storage** saves stats to `commit_stats.json`
+4. **Results Storage** publishes aggregate stats to `commit_stats.json` on the
+   non-default `stats` branch, so refresh commits do not count themselves
 5. **Website Display** shows stats in a beautiful web interface
 
 ## Setup
@@ -67,8 +68,9 @@ The script generates a `commit_stats.json` file with the following structure:
 ```json
 {
   "timestamp": "2024-01-15T02:00:00+00:00",
-  "scope": "commits authored by masonwyatt23 across accessible repositories",
-  "total_commits": 15234
+  "scope": "default-branch commits across non-fork repositories owned by masonwyatt23, ashlrai, and Cash-Margin-Partners",
+  "total_commits": 37490,
+  "total_repositories": 108
 }
 ```
 
@@ -116,19 +118,21 @@ The site will be available at: `https://masonwyatt23.github.io/commit-counter/`
 
 ### Stats not updating?
 - Check the workflow logs in **Actions** tab
-- Verify commits are attributed to the configured GitHub username
+- Verify the token can read all three configured owners
 - GitHub API rate limits: 5,000 requests/hour per token
 
 ### Incorrect commit counts?
-- GitHub commit search evaluates repositories' default branches
-- Commits must be attributed by GitHub to the configured username
+- The counter includes all contributors in each repository's default-branch history
+- Forks are excluded to avoid counting upstream histories again
+- Empty repositories are excluded because they have no default branch
 - The token must be able to access every private repository that should count
 - Re-run the workflow if needed
 
 ## API Rate Limiting
 
-The script uses GitHub's authenticated commit-search endpoint and fails closed
-when GitHub reports incomplete results. A normal run makes one search request.
+The script uses GitHub's authenticated GraphQL API, paginates every configured
+owner with `ownerAffiliations: [OWNER]`, and fails closed on API or pagination
+errors. A normal run makes one request per 100 repositories per owner.
 
 ## Support
 

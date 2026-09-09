@@ -18,6 +18,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
       
       - name: Set up Python
         uses: actions/setup-python@v5
@@ -33,14 +35,17 @@ jobs:
         run: |
           python scripts/count_commits.py
       
-      - name: Commit and push results
+      - name: Publish results on the stats branch
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
+          git worktree add ../commit-counter-stats origin/stats
+          cp commit_stats.json ../commit-counter-stats/commit_stats.json
+          cd ../commit-counter-stats
           git add commit_stats.json
           if git diff --cached --quiet; then
             echo "No changes to commit"
           else
             git commit -m "chore: update commit statistics"
-            git push
+            git push origin HEAD:stats
           fi

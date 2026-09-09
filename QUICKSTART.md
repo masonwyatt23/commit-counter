@@ -16,7 +16,10 @@
 
 ---
 
-## 🚀 ONE-STEP ACTIVATION
+## 🚀 ACTIVATION
+
+Add the `COMMIT_COUNTER_TOKEN` repository secret described in `README.md`, then
+run the workflow:
 
 ### **Click This Link to Trigger the Workflow:**
 
@@ -34,7 +37,8 @@ https://github.com/masonwyatt23/commit-counter/actions/workflows/commit-counter.
 
 **Every Day at 2 AM UTC:**
 - Workflow runs automatically
-- Counts all commits across your repos
+- Counts default-branch commits across non-fork repositories owned by
+  `masonwyatt23`, `ashlrai`, and `Cash-Margin-Partners`
 - Updates the live display on ashlr.ai
 - You see the number update in top-right corner
 
@@ -46,12 +50,12 @@ If you want to verify everything is working:
 
 ```bash
 # Check if stats file exists and has data
-curl https://raw.githubusercontent.com/masonwyatt23/commit-counter/main/commit_stats.json
+curl https://raw.githubusercontent.com/masonwyatt23/commit-counter/stats/commit_stats.json
 
 # You should see JSON with:
 # - total_commits: (number)
 # - total_repositories: (number)
-# - repositories: [list of repos with commit counts]
+# The public payload intentionally omits repository names and per-repository counts.
 ```
 
 ---
@@ -63,7 +67,7 @@ curl https://raw.githubusercontent.com/masonwyatt23/commit-counter/main/commit_s
 📊 123,456 commits
 ```
 
-Click it to see your top repositories on GitHub.
+Click it to inspect the aggregate counter source on GitHub.
 
 ---
 
@@ -75,7 +79,8 @@ Click it to see your top repositories on GitHub.
 - Your browser cache is stale (hard refresh with Ctrl+Shift+R or Cmd+Shift+R)
 
 ### "The number is incorrect"
-- GitHub API may be rate-limited (try again in an hour)
+- Confirm `COMMIT_COUNTER_TOKEN` can read private repositories for all three owners
+- Confirm forked repositories should remain excluded to avoid duplicate upstream history
 - The workflow is still running (wait 2-3 minutes)
 
 ### "I want to change when it runs"
@@ -96,4 +101,4 @@ cron: '0 2 * * *'  # Change this (currently 2 AM UTC daily)
 
 ---
 
-**That's it! Everything is production-ready. Just click the button above to activate! 🚀**
+The live site revalidates the aggregate source hourly after a successful run.
